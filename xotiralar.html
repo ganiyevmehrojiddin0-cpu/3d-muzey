@@ -970,10 +970,90 @@
     sakrat();
   });
 
+  // ---------- Romantik fon musiqasi ----------
   let ovozYoqilgan = true;
+  let audioCtx = null;
+  let musiqaTimer = null;
+
+  function notaChal(chastota, boshlanish, davomiylik, balandlik = 0.022, toliq = "sine") {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const filter = audioCtx.createBiquadFilter();
+    const gain = audioCtx.createGain();
+
+    osc.type = toliq;
+    osc.frequency.setValueAtTime(chastota, boshlanish);
+
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(950, boshlanish);
+
+    gain.gain.setValueAtTime(0.0001, boshlanish);
+    gain.gain.linearRampToValueAtTime(balandlik, boshlanish + 0.85);
+    gain.gain.exponentialRampToValueAtTime(0.0001, boshlanish + davomiylik);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start(boshlanish);
+    osc.stop(boshlanish + davomiylik + 0.05);
+  }
+
+  function romantikAkkordChal(akkord) {
+    if (!ovozYoqilgan) return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+
+    const hozir = audioCtx.currentTime;
+
+    akkord.pad.forEach((hz, i) => {
+      notaChal(hz, hozir + i * 0.14, 4.6, 0.02, "sine");
+    });
+
+    notaChal(akkord.melodiya1, hozir + 0.9, 2.2, 0.016, "triangle");
+    notaChal(akkord.melodiya2, hozir + 2.3, 2.2, 0.014, "sine");
+  }
+
+  function musiqaniBoshla() {
+    if (musiqaTimer) clearInterval(musiqaTimer);
+
+    const romantikProg = [
+      { pad: [174.61, 220.00, 261.63, 329.63], melodiya1: 440.00, melodiya2: 523.25 }, // Fmaj7
+      { pad: [164.81, 196.00, 246.94, 293.66], melodiya1: 392.00, melodiya2: 493.88 }, // Em7
+      { pad: [146.83, 220.00, 261.63, 349.23], melodiya1: 392.00, melodiya2: 440.00 }, // Dm7
+      { pad: [130.81, 196.00, 246.94, 329.63], melodiya1: 392.00, melodiya2: 440.00 }  // Cmaj7
+    ];
+
+    let qadam = 0;
+    romantikAkkordChal(romantikProg[0]);
+
+    musiqaTimer = setInterval(() => {
+      if (!ovozYoqilgan) return;
+      qadam = (qadam + 1) % romantikProg.length;
+      romantikAkkordChal(romantikProg[qadam]);
+    }, 4200);
+  }
+
+  addEventListener("pointerdown", () => {
+    if (ovozYoqilgan && !musiqaTimer) {
+      musiqaniBoshla();
+    }
+  }, { once: true });
+
   soundBtn.addEventListener("click", () => {
     ovozYoqilgan = !ovozYoqilgan;
     soundBtn.textContent = ovozYoqilgan ? "🔊" : "🔇";
+    if (ovozYoqilgan) {
+      if (!musiqaTimer) {
+        musiqaniBoshla();
+      } else if (audioCtx && audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    } else if (audioCtx && audioCtx.state === "running") {
+      audioCtx.suspend();
+    }
   });
 
   // ---------- Ekran joystigi ----------
